@@ -7,19 +7,14 @@ import pandas as pd
 import streamlit as st
  
 COLOR_A, COLOR_B, COLOR_C = "#3B6CF6", "#12B886", "#FF922B"
-OPCIONES = ("a", "b", "c")
-COLORES = {"a": COLOR_A, "b": COLOR_B, "c": COLOR_C}
-ESPERADAS = {"Inglés": 8, "Programación": 7}
-ABREV = {"Inglés": "In", "Programación": "Pr"}
-COLS_T2 = ["Pregunta 1", "Pregunta 2", "Pregunta 3a", "Pregunta 3b",
-           "Pregunta 3c", "Pregunta 3d", "Pregunta 4"]
+COLORES = (COLOR_A, COLOR_B, COLOR_C)
  
-ICONO_NUBE = (
-    "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' "
-    "fill='none' stroke='%233B6CF6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'>"
-    "<path d='M18 42a10 10 0 0 1-1-19.9A15 15 0 0 1 46 20a11 11 0 0 1 2 22'/>"
-    "<path d='M32 52V30M24 37l8-8 8 8'/></svg>\")"
-)
+COLS_GRUPO = {
+    "Inglés": [f"Pregunta {i}" for i in range(1, 9)],
+    "Programación": [f"Pregunta {i}" for i in range(1, 8)],
+    "Plática STEM": ["Pregunta 1", "Pregunta 2", "Pregunta 3a", "Pregunta 3b",
+                     "Pregunta 3c", "Pregunta 3d", "Pregunta 4"],
+}
  
 CSS = """
 <style>
@@ -27,9 +22,13 @@ CSS = """
  
 :root {
   --azul: #3B6CF6; --violeta: #6D4CFF; --tinta: #0F1B4D; --suave: #5B6B9A;
-  --fondo: #F2F6FF; --borde: #DCE5FA; --marino: #0B1646; --marino2: #14246B;
+  --borde: #DCE5FA; --marino: #0B1646; --marino2: #14246B;
 }
 html, body, [class*="st-"], .stApp { font-family: 'Plus Jakarta Sans', sans-serif; }
+/* Los íconos de Streamlit usan su propia fuente; sin esto se ven como texto ("upload") */
+[data-testid="stIconMaterial"], [class*="material-symbols"], [class*="material-icons"] {
+  font-family: 'Material Symbols Rounded' !important;
+}
 .stApp { background: linear-gradient(160deg, #F7FAFF 0%, #EAF0FF 100%); color: var(--tinta); }
 .block-container { padding-top: 2rem; max-width: 1200px; }
 h1, h2, h3 { color: var(--tinta); letter-spacing: -0.01em; font-weight: 700; }
@@ -43,16 +42,24 @@ h1, h2, h3 { color: var(--tinta); letter-spacing: -0.01em; font-weight: 700; }
 [data-testid="stSidebar"] label, [data-testid="stSidebar"] p,
 [data-testid="stSidebar"] span, [data-testid="stSidebar"] div { color: #E6ECFF; }
  
-/* Campos de texto: el contenedor de BaseWeb pintaba fondo blanco y el texto claro no se veía */
+/* Campos de texto del sidebar: fondo oscuro y texto blanco */
+[data-testid="stSidebar"] [data-testid="stTextInputRootElement"],
 [data-testid="stSidebar"] [data-baseweb="input"],
-[data-testid="stSidebar"] [data-baseweb="base-input"] {
-  background: rgba(255,255,255,.08) !important;
-  border: 1px solid rgba(255,255,255,.14) !important; border-radius: 10px !important;
+[data-testid="stSidebar"] [data-baseweb="base-input"],
+[data-testid="stSidebar"] [data-baseweb="input"] > div,
+[data-testid="stSidebar"] [data-baseweb="base-input"] > div {
+  background: rgba(255,255,255,.10) !important;
+  border-color: rgba(255,255,255,.18) !important;
+  border-radius: 10px;
 }
 [data-testid="stSidebar"] input {
-  background: transparent !important; color: #fff !important;
-  -webkit-text-fill-color: #fff !important; caret-color: #fff;
+  background: transparent !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  caret-color: #fff;
 }
+[data-testid="stSidebar"] [data-baseweb="input"] svg { fill: #E6ECFF; }
+ 
 [data-testid="stSidebar"] .stButton > button,
 [data-testid="stSidebar"] .stDownloadButton > button {
   background: rgba(255,255,255,.08); color: #fff; width: 100%;
@@ -62,7 +69,6 @@ h1, h2, h3 { color: var(--tinta); letter-spacing: -0.01em; font-weight: 700; }
 [data-testid="stSidebar"] .stDownloadButton > button:hover {
   background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.3);
 }
-/* Botón de borrado (usa key="btn_borrar") */
 [data-testid="stSidebar"] .st-key-btn_borrar button {
   background: transparent; color: #FF8FA3; border: 1px solid #FF5C7A;
 }
@@ -76,7 +82,7 @@ h1, h2, h3 { color: var(--tinta); letter-spacing: -0.01em; font-weight: 700; }
 }
 .hero .icono {
   font-size: 2.2rem; width: 4rem; height: 4rem; display: grid; place-items: center;
-  border-radius: 18px; background: linear-gradient(135deg, #E4ECFF, #F1EBFF);
+  border-radius: 18px; background: linear-gradient(135deg, #E4ECFF, #F1EBFF); flex: none;
 }
 .hero h1 { margin: 0; font-size: 1.9rem; font-weight: 800; padding: 0; }
 .hero p { margin: .2rem 0 0; color: var(--suave); }
@@ -91,57 +97,49 @@ h1, h2, h3 { color: var(--tinta); letter-spacing: -0.01em; font-weight: 700; }
   box-shadow: 0 10px 30px rgba(59,108,246,.06);
 }
  
-/* ---------- Radio horizontal como tarjetas ---------- */
-div[role="radiogroup"][aria-orientation="horizontal"],
+/* ---------- Radio como tarjetas ---------- */
 .main div[role="radiogroup"] { gap: .8rem; }
 .main div[role="radiogroup"] > label {
   background: #fff; border: 1.5px solid var(--borde); border-radius: 14px;
   padding: .8rem 1.1rem; transition: border-color .15s, box-shadow .15s;
 }
 .main div[role="radiogroup"] > label:has(input:checked) {
-  border-color: var(--azul); box-shadow: 0 0 0 3px rgba(59,108,246,.15);
-  background: #F5F8FF;
+  border-color: var(--azul); box-shadow: 0 0 0 3px rgba(59,108,246,.15); background: #F5F8FF;
 }
  
-/* ---------- Zona de carga (estilo con brillo) ---------- */
+/* ---------- Zona de carga ---------- */
 [data-testid="stFileUploaderDropzone"] {
-  display: flex; align-items: center; gap: 1.2rem; padding: 1.3rem 1.6rem;
-  border: 1.5px solid #8CC5FF; border-radius: 20px;
-  background: linear-gradient(135deg, #F8FBFF 0%, #EAF4FF 100%);
-  box-shadow: 0 0 0 4px rgba(56,160,255,.10), 0 0 30px rgba(45,190,240,.30);
-  transition: box-shadow .2s, border-color .2s;
+  display: flex; align-items: center; gap: 1.1rem;
+  border: 1.5px solid #7CC4F8; border-radius: 18px;
+  background: linear-gradient(180deg, #F8FBFF, #EEF6FF);
+  box-shadow: 0 0 0 4px rgba(94,170,255,.12), 0 0 28px rgba(94,170,255,.35);
+  padding: 1.3rem 1.6rem;
 }
-[data-testid="stFileUploaderDropzone"]:hover {
-  border-color: #4DA3FF;
-  box-shadow: 0 0 0 5px rgba(56,160,255,.16), 0 0 38px rgba(45,190,240,.45);
-}
-/* Oculta el icono y textos originales (en inglés) y los reemplaza */
-[data-testid="stFileUploaderDropzone"] svg { display: none; }
 [data-testid="stFileUploaderDropzone"]::before {
-  content: ""; flex: 0 0 4rem; height: 4rem; border-radius: 18px;
-  background: #fff var(--nube) center / 60% no-repeat;
+  content: "☁️"; font-size: 1.8rem; width: 3.6rem; height: 3.6rem; flex: none;
+  display: grid; place-items: center; background: #fff; border-radius: 16px;
   box-shadow: 0 6px 16px rgba(59,108,246,.15);
 }
-[data-testid="stFileUploaderDropzoneInstructions"] > div > *,
-[data-testid="stFileUploaderDropzoneInstructions"] > span,
-[data-testid="stFileUploaderDropzoneInstructions"] > small { display: none; }
-[data-testid="stFileUploaderDropzoneInstructions"] > div { display: flex; flex-direction: column; gap: .15rem; }
-[data-testid="stFileUploaderDropzoneInstructions"] > div::before {
+/* Textos en español (se oculta el texto original de Streamlit) */
+[data-testid="stFileUploaderDropzoneInstructions"] { flex: 1; }
+[data-testid="stFileUploaderDropzoneInstructions"] > * { display: none; }
+[data-testid="stFileUploaderDropzoneInstructions"]::before {
   content: "Arrastra tus imágenes aquí o haz clic para seleccionar";
-  font-size: 1rem; font-weight: 700; color: var(--tinta);
+  display: block; font-weight: 700; color: var(--tinta);
 }
-[data-testid="stFileUploaderDropzoneInstructions"] > div::after {
-  content: "Formatos: JPG, PNG, WEBP  |  Máx. 200MB por archivo";
-  font-size: .8rem; color: var(--suave);
+[data-testid="stFileUploaderDropzoneInstructions"]::after {
+  content: "Formatos: JPG, PNG, WEBP  |  Máx. 200 MB por archivo";
+  display: block; font-size: .85rem; color: var(--suave); margin-top: .15rem;
 }
+/* Botón con texto propio (se oculta el ícono y el texto original) */
 [data-testid="stFileUploaderDropzone"] button {
-  margin-left: auto; font-size: 0; border: none; border-radius: 12px; padding: .65rem 1.3rem;
-  background: linear-gradient(135deg, var(--azul), #4C86FF); color: #fff;
-  box-shadow: 0 8px 18px rgba(59,108,246,.30);
+  margin-left: auto; background: linear-gradient(135deg, var(--azul), #4F86F7);
+  border: none; border-radius: 12px; padding: .6rem 1.4rem;
+  box-shadow: 0 8px 20px rgba(59,108,246,.3);
 }
-[data-testid="stFileUploaderDropzone"] button > * { display: none; }
+[data-testid="stFileUploaderDropzone"] button * { display: none; }
 [data-testid="stFileUploaderDropzone"] button::after {
-  content: "Seleccionar Archivos"; font-size: .9rem; font-weight: 600; color: #fff;
+  content: "Seleccionar archivos"; color: #fff; font-weight: 600; font-size: .95rem;
 }
  
 /* ---------- Botones principales ---------- */
@@ -154,66 +152,119 @@ div[role="radiogroup"][aria-orientation="horizontal"],
   border-radius: 12px; border: 1px solid var(--borde); font-weight: 600;
 }
  
-/* ---------- Métricas del resumen ---------- */
+/* ---------- Resumen ---------- */
 .metrica { display: flex; align-items: center; gap: .8rem; padding: .45rem 0; }
-.metrica .chip { width: 2.4rem; height: 2.4rem; border-radius: 12px; display: grid; place-items: center; }
+.metrica .chip { width: 2.4rem; height: 2.4rem; border-radius: 12px; display: grid; place-items: center; flex: none; }
 .metrica .txt { color: var(--suave); font-size: .92rem; flex: 1; }
 .metrica .num { font-size: 1.7rem; font-weight: 800; color: var(--tinta); }
  
 /* ---------- Análisis por pregunta ---------- */
-.an-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .9rem; }
-.an-head h4 { margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--tinta); }
-.leyenda { display: flex; gap: 1rem; font-size: .85rem; font-weight: 600; color: var(--suave); }
-.leyenda i, .hops i { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; margin-right: .3rem; }
-.an-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem; align-items: start; }
- 
-.vwrap { display: grid; grid-template-columns: 2rem 1fr; column-gap: .5rem; }
-.vy { display: flex; flex-direction: column; justify-content: space-between; height: 190px;
-      font-size: .75rem; color: var(--suave); text-align: right; }
-.vplot { height: 190px; display: flex; gap: .4rem; align-items: flex-end; padding: 0 .3rem;
-         border-bottom: 1px solid var(--borde);
-         background-image: linear-gradient(to top, #EDF1FB 1px, transparent 1px);
-         background-size: 100% 50%; }
-.vcol { flex: 1; height: 100%; display: flex; align-items: flex-end; justify-content: center; }
-.vstack { width: 78%; max-width: 34px; display: flex; flex-direction: column-reverse;
-          border-radius: 6px 6px 0 0; overflow: hidden; }
-.vstack .seg { min-height: 2px; }
-.vlabels { grid-column: 2; display: flex; gap: .4rem; padding: .3rem .3rem 0; }
-.vlabels span { flex: 1; text-align: center; font-size: .68rem; color: var(--suave); }
- 
-.hlista { display: flex; flex-direction: column; gap: .85rem; }
-.hcab { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .3rem; }
-.hnom { font-size: .88rem; font-weight: 600; color: var(--tinta); }
-.hops { font-size: .78rem; color: var(--suave); white-space: nowrap; }
-.hops b { color: var(--tinta); margin-right: .55rem; font-weight: 700; }
-.hbar { display: flex; height: 9px; border-radius: 999px; overflow: hidden; background: #E6EBF5; }
+.graf-cab { display: flex; align-items: center; justify-content: space-between; margin-bottom: .4rem; }
+.graf-cab h4 { margin: 0; padding: 0; font-size: 1.15rem; font-weight: 700; }
+.leyenda { display: flex; gap: .9rem; font-size: .85rem; color: var(--suave); }
+.leyenda .dot { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; margin-right: .3rem; }
+.graf { display: grid; grid-template-columns: auto 1.25fr 1fr; gap: 1rem; height: 230px; margin-top: .5rem; }
+.graf .eje { display: flex; flex-direction: column; justify-content: space-between;
+  padding-bottom: 22px; font-size: .75rem; color: var(--suave); text-align: right; }
+.graf .barras { display: flex; gap: 6px; border-left: 1px solid var(--borde); padding-left: 8px; }
+.graf .col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.graf .pila { flex: 1; display: flex; flex-direction: column-reverse; border-bottom: 1px solid var(--borde); }
+.graf .seg { min-height: 0; }
+.graf .et { height: 22px; text-align: center; font-size: .72rem; color: var(--suave); padding-top: 4px; }
+.graf .filas { overflow-y: auto; padding-right: 6px; }
+.graf .fila { margin-bottom: .75rem; }
+.graf .fila-t { display: flex; justify-content: space-between; font-size: .8rem; font-weight: 600; margin-bottom: .25rem; }
+.graf .cnt { display: flex; gap: .5rem; font-weight: 700; }
+.graf .barra { display: flex; height: 8px; border-radius: 99px; background: #E8EDF8; overflow: hidden; }
+.graf .barra i { display: block; height: 100%; }
  
 /* ---------- Móvil ---------- */
+@media (max-width: 900px) {
+  .graf { grid-template-columns: auto 1fr; height: auto; }
+  .graf .barras { min-height: 200px; }
+  .graf .filas { grid-column: 1 / -1; max-height: 220px; }
+}
 @media (max-width: 640px) {
   .hero { flex-wrap: wrap; } .estado { margin-left: 0; }
-  .an-grid { grid-template-columns: 1fr; }
   [data-testid="stFileUploaderDropzone"] { flex-wrap: wrap; }
+}
+/* ===== Parches ===== */
+/* 1. Íconos de Streamlit: que vuelvan a verse como íconos y no como texto */
+span[data-testid="stIconMaterial"], .stApp [class*="material-symbols"] {
+  font-family: "Material Symbols Rounded", "Material Symbols Outlined" !important;
+  font-weight: normal !important; font-style: normal !important;
+  font-feature-settings: "liga" !important; -webkit-font-feature-settings: "liga" !important;
+  letter-spacing: normal !important; text-transform: none !important; white-space: nowrap !important;
+}
+ 
+/* 2. Campos del sidebar (incluida la contraseña): fondo claro y texto oscuro siempre visible */
+section[data-testid="stSidebar"] [data-testid="stTextInputRootElement"],
+section[data-testid="stSidebar"] [data-baseweb="input"],
+section[data-testid="stSidebar"] [data-baseweb="base-input"] {
+  background: #FFFFFF !important; border-radius: 10px !important;
+  border: 1px solid #C9D6FA !important;
+}
+section[data-testid="stSidebar"] [data-testid="stTextInput"] input,
+section[data-testid="stSidebar"] input[type="text"],
+section[data-testid="stSidebar"] input[type="password"] {
+  background: #FFFFFF !important; color: #0F1B4D !important;
+  -webkit-text-fill-color: #0F1B4D !important; caret-color: #0F1B4D !important;
+}
+section[data-testid="stSidebar"] input::placeholder {
+  color: #8A97BD !important; -webkit-text-fill-color: #8A97BD !important;
+}
+/* Botón del ojito (mostrar/ocultar contraseña) */
+section[data-testid="stSidebar"] [data-baseweb="input"] button,
+section[data-testid="stSidebar"] [data-baseweb="input"] button * {
+  background: transparent !important; color: #5B6B9A !important; fill: #5B6B9A !important;
+}
+ 
+/* 3. Zona de carga con textos en español */
+[data-testid="stFileUploaderDropzone"] {
+  display: flex !important; align-items: center; gap: 1.1rem;
+  border: 1.5px solid #7CC4F8 !important; border-radius: 18px;
+  background: linear-gradient(180deg, #F8FBFF, #EEF6FF) !important;
+  box-shadow: 0 0 0 4px rgba(94,170,255,.12), 0 0 28px rgba(94,170,255,.35);
+  padding: 1.3rem 1.6rem;
+}
+[data-testid="stFileUploaderDropzone"]::before {
+  content: "☁️"; font-size: 1.8rem; width: 3.6rem; height: 3.6rem; flex: none;
+  display: grid; place-items: center; background: #fff; border-radius: 16px;
+  box-shadow: 0 6px 16px rgba(59,108,246,.15);
+}
+[data-testid="stFileUploaderDropzoneInstructions"] { flex: 1; }
+[data-testid="stFileUploaderDropzoneInstructions"] > * { display: none; }
+[data-testid="stFileUploaderDropzoneInstructions"]::before {
+  content: "Arrastra tus imágenes aquí o haz clic para seleccionar";
+  display: block; font-weight: 700; color: #0F1B4D;
+}
+[data-testid="stFileUploaderDropzoneInstructions"]::after {
+  content: "Formatos: JPG, PNG, WEBP  |  Máx. 200 MB por archivo";
+  display: block; font-size: .85rem; color: #5B6B9A; margin-top: .15rem;
+}
+[data-testid="stFileUploaderDropzone"] button {
+  margin-left: auto; background: linear-gradient(135deg, #3B6CF6, #4F86F7) !important;
+  border: none; border-radius: 12px; padding: .6rem 1.4rem;
+  box-shadow: 0 8px 20px rgba(59,108,246,.3);
+}
+[data-testid="stFileUploaderDropzone"] button * { display: none; }
+[data-testid="stFileUploaderDropzone"] button::after {
+  content: "Seleccionar archivos"; color: #fff; font-weight: 600; font-size: .95rem;
 }
 </style>
 """
  
  
 def aplicar_estilos() -> None:
-    st.markdown(CSS.replace("var(--nube)", ICONO_NUBE), unsafe_allow_html=True)
+    st.markdown(CSS, unsafe_allow_html=True)
  
  
 def encabezado() -> None:
     st.markdown(
-        """
-        <div class="hero">
-          <div class="icono">📷</div>
-          <div>
-            <h1>Escáner Inteligente de Encuestas</h1>
-            <p>Convierte encuestas escritas a mano en una base de datos ordenada.</p>
-          </div>
-          <span class="estado">● Sistema listo</span>
-        </div>
-        """,
+        '<div class="hero"><div class="icono">📷</div><div>'
+        '<h1>Escáner Inteligente de Encuestas</h1>'
+        '<p>Convierte encuestas escritas a mano en una base de datos.</p>'
+        '</div><span class="estado">● Sistema listo</span></div>',
         unsafe_allow_html=True,
     )
  
@@ -223,92 +274,54 @@ def _metrica(icono: str, fondo: str, texto: str, valor: int) -> str:
             f'<div class="txt">{texto}</div><div class="num">{valor}</div></div>')
  
  
-def _cols_pregunta(df: pd.DataFrame) -> list:
-    """Columnas de opción múltiple (excluye la Pregunta 5 de texto libre)."""
-    return [c for c in df.columns if c.startswith("Pregunta") and c != "Pregunta 5"]
+def _grupos(df: pd.DataFrame) -> dict:
+    """Separa los registros por sección (Inglés, Programación, Plática STEM)."""
+    mat = df["Materia"] if "Materia" in df.columns else pd.Series([None] * len(df), index=df.index)
+    grupos = {}
+    for nombre in ("Inglés", "Programación"):
+        sub = df[mat == nombre]
+        if len(sub):
+            grupos[nombre] = sub.reindex(columns=COLS_GRUPO[nombre])
+    sub = df[mat.isna()]
+    if len(sub):
+        grupos["Plática STEM"] = sub.reindex(columns=COLS_GRUPO["Plática STEM"])
+    return grupos
  
  
-# ---------------------------------------------------------
-# Análisis por pregunta
-# ---------------------------------------------------------
-def _filas_analisis(df: pd.DataFrame) -> list:
-    """Devuelve [(etiqueta, etiqueta_corta, {a,b,c: conteo}, total_registros)]."""
-    filas = []
-    if "Materia" in df.columns and df["Materia"].notna().any():
-        for materia, n in ESPERADAS.items():
-            sub = df[df["Materia"] == materia]
-            if sub.empty:
-                continue
-            for i in range(1, n + 1):
-                col = f"Pregunta {i}"
-                if col in sub.columns:
-                    filas.append((f"P{i} · {materia}", f"{ABREV[materia]}{i}", sub[col], len(sub)))
-    else:
-        for col in COLS_T2:
-            if col in df.columns:
-                corta = col.replace("Pregunta ", "P")
-                filas.append((corta, corta, df[col], len(df)))
-    return [(e, c, {op: int((s == op).sum()) for op in OPCIONES}, n) for e, c, s, n in filas]
+def _grafica_html(nombre: str, sub: pd.DataFrame) -> str:
+    n = len(sub)
+    datos = {}
+    for c in sub.columns:
+        s = sub[c]
+        datos[c] = ([int((s == o).sum()) for o in "abc"], int(s.notna().sum()))
+    top = max(1, max(t for _, t in datos.values()))
+    mid = round(top / 2)
  
+    barras, filas = "", ""
+    for c, (cnt, tot) in datos.items():
+        r = c.replace("Pregunta ", "Q")
+        segs = "".join(f'<div class="seg" style="flex:{k} 0 0%;background:{col}"></div>'
+                       for k, col in zip(cnt, COLORES))
+        barras += (f'<div class="col"><div class="pila">{segs}'
+                   f'<div style="flex:{top - tot} 0 0%"></div></div><div class="et">{r}</div></div>')
+        anchos = "".join(f'<i style="width:{k / n * 100:.1f}%;background:{col}"></i>'
+                         for k, col in zip(cnt, COLORES))
+        nums = "".join(f'<span style="color:{col}">{o} {k}</span>'
+                       for o, k, col in zip("abc", cnt, COLORES))
+        filas += (f'<div class="fila"><div class="fila-t"><span>{r} - {nombre}</span>'
+                  f'<span class="cnt">{nums}</span></div><div class="barra">{anchos}</div></div>')
  
-def _html_vertical(filas: list) -> str:
-    maximo = max((sum(c.values()) for _, _, c, _ in filas), default=0) or 1
-    cols, etiquetas = "", ""
-    for etiqueta, corta, conteo, _ in filas:
-        alto = sum(conteo.values()) / maximo * 100
-        segs = "".join(f'<div class="seg" style="flex:{conteo[o]};background:{COLORES[o]}"></div>'
-                       for o in OPCIONES if conteo[o])
-        cols += f'<div class="vcol" title="{etiqueta}"><div class="vstack" style="height:{alto:.1f}%">{segs}</div></div>'
-        etiquetas += f"<span>{corta}</span>"
-    eje = f"<span>{maximo:g}</span><span>{maximo / 2:g}</span><span>0</span>"
-    return (f'<div class="vwrap"><div class="vy">{eje}</div><div class="vplot">{cols}</div>'
-            f'<div class="vlabels">{etiquetas}</div></div>')
- 
- 
-def _html_horizontal(filas: list) -> str:
-    items = ""
-    for etiqueta, _, conteo, n in filas:
-        n = max(n, 1)
-        segs = "".join(f'<div style="width:{conteo[o] / n * 100:.1f}%;background:{COLORES[o]}"></div>'
-                       for o in OPCIONES if conteo[o])
-        ops = "".join(f'<i style="background:{COLORES[o]}"></i><b>{o} {conteo[o]}</b>' for o in OPCIONES)
-        items += (f'<div class="hfila"><div class="hcab"><span class="hnom">{etiqueta}</span>'
-                  f'<span class="hops">{ops}</span></div><div class="hbar">{segs}</div></div>')
-    return f'<div class="hlista">{items}</div>'
- 
- 
-def _tarjeta_analisis(df: pd.DataFrame) -> None:
-    with st.container(border=True):
-        tipos = sorted(str(x) for x in df["Tipo Encuesta"].dropna().unique()) if "Tipo Encuesta" in df else []
-        base = df
-        if len(tipos) > 1:
-            elegido = st.radio("Encuesta", tipos, horizontal=True, label_visibility="collapsed",
-                               key="analisis_tipo")
-            base = df[df["Tipo Encuesta"] == elegido]
-        elif len(tipos) == 1:
-            base = df[df["Tipo Encuesta"] == tipos[0]]
- 
-        leyenda = "".join(f'<span><i style="background:{COLORES[o]}"></i>{o}</span>' for o in OPCIONES)
-        st.markdown(f'<div class="an-head"><h4>Análisis por pregunta</h4>'
-                    f'<div class="leyenda">{leyenda}</div></div>', unsafe_allow_html=True)
- 
-        filas = _filas_analisis(base)
-        if not filas:
-            st.caption("Aún no hay respuestas para graficar.")
-            return
-        st.markdown(f'<div class="an-grid">{_html_vertical(filas)}{_html_horizontal(filas)}</div>',
-                    unsafe_allow_html=True)
-        st.caption("La barra gris indica respuestas sin marca. Cada barra es el 100 % de los registros de esa materia.")
+    return (f'<div class="graf"><div class="eje"><span>{top}</span><span>{mid}</span><span>0</span></div>'
+            f'<div class="barras">{barras}</div><div class="filas">{filas}</div></div>')
  
  
 def panel_resumen(df: pd.DataFrame) -> None:
-    """Resumen + últimos registros arriba, análisis por pregunta a todo el ancho."""
-    cols = _cols_pregunta(df)
-    respuestas = df[cols] if cols else pd.DataFrame()
-    total = int(respuestas.notna().sum().sum()) if cols else 0
-    vacias = int(respuestas.isna().sum().sum()) if cols else 0
+    """Tres tarjetas: resumen, análisis por pregunta y últimos registros."""
+    grupos = _grupos(df)
+    total = sum(int(g.notna().sum().sum()) for g in grupos.values())
+    vacias = sum(int(g.isna().sum().sum()) for g in grupos.values())
  
-    c1, c2 = st.columns([1, 1.4])
+    c1, c2, c3 = st.columns([0.9, 2.3, 1.1])
  
     with c1.container(border=True):
         st.markdown("#### Resumen")
@@ -320,20 +333,23 @@ def panel_resumen(df: pd.DataFrame) -> None:
         )
  
     with c2.container(border=True):
+        leyenda = "".join(f'<span><span class="dot" style="background:{col}"></span>{o}</span>'
+                          for o, col in zip("abc", COLORES))
+        st.markdown(f'<div class="graf-cab"><h4>Análisis por pregunta</h4>'
+                    f'<div class="leyenda">{leyenda}</div></div>', unsafe_allow_html=True)
+        if not grupos:
+            st.caption("Aún no hay respuestas para graficar.")
+        else:
+            nombre = (st.selectbox("Sección", list(grupos), key="grupo_grafica",
+                                   label_visibility="collapsed")
+                      if len(grupos) > 1 else next(iter(grupos)))
+            st.markdown(_grafica_html(nombre, grupos[nombre]), unsafe_allow_html=True)
+ 
+    with c3.container(border=True):
         st.markdown("#### Últimos registros")
-        vista = pd.DataFrame({"Nombre": df.get("Nombre")})
-        vista["Materia"] = df["Materia"].fillna("—") if "Materia" in df else "—"
-        grupo = df["Grupo"] if "Grupo" in df else pd.Series([None] * len(df), index=df.index)
-        if "Grado y grupo" in df:
-            grupo = grupo.fillna(df["Grado y grupo"])
-        vista["Grupo"] = grupo.fillna("—")
-        st.dataframe(vista.head(4), hide_index=True, use_container_width=True)
+        g1 = df["Grupo"] if "Grupo" in df.columns else pd.Series(None, index=df.index, dtype=object)
+        g2 = df["Grado y grupo"] if "Grado y grupo" in df.columns else pd.Series(None, index=df.index, dtype=object)
+        vista = pd.DataFrame({"Nombre": df.get("Nombre"), "Grupo": g1.fillna(g2)}).head(4)
+        st.dataframe(vista, hide_index=True, use_container_width=True)
         st.caption("La tabla completa está más abajo.")
  
-    _tarjeta_analisis(df)
-def panel_resumen(df: pd.DataFrame) -> None:
-    ...
-    _tarjeta_analisis(df)
-
-
-filas_analisis = _filas_analisis

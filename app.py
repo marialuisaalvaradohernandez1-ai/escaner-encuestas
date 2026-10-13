@@ -14,16 +14,20 @@ import requests
 import streamlit as st
 from PIL import Image, ImageOps
  
+from estilos import aplicar_estilos, encabezado, panel_resumen
+from excel_export import excel_bytes
+ 
 # =========================================================
 # CONFIGURACIÓN
 # =========================================================
 st.set_page_config(page_title="Escáner Inteligente de Encuestas", page_icon="📷", layout="wide")
-st.title("📷 Escáner Inteligente de Encuestas")
+aplicar_estilos()
+encabezado()
  
 DB_NAME = "encuestas.db"
 MODELOS_GEMINI_DEFECTO = "gemini-3.8-flash, gemini-3.7-flash, gemini-3.6-flash"
 OLLAMA_HOST_DEFECTO = "http://localhost:11434"
-OLLAMA_MODELO_DEFECTO = "qwen2.5vl:3b"
+OLLAMA_MODELO_DEFECTO = "qwen2.5vl:7b"
 MAX_IMAGE_SIDE = 2000
 JPEG_QUALITY = 88
 MAX_REINTENTOS = 5
@@ -74,7 +78,7 @@ if not st.session_state.authenticated:
  
 API_KEY = secreto("GEMINI_API_KEY")
  
-for clave, valor in {"pendientes": [], "hashes_pend": set(), "cache_gemini": {}}.items():
+for clave, valor in {"pendientes": [], "hashes_pend": set(), "cache_gemini": {}, "uploader_key": 0}.items():
     if clave not in st.session_state:
         st.session_state[clave] = valor
  
@@ -283,21 +287,11 @@ DISTRIBUCIÓN: cada sección tiene dos columnas. Se lee primero la columna izqui
 REGLAS:
 - Cada materia es independiente; la numeración se reinicia en cada sección.
 - No combines secciones, no agregues ni elimines preguntas.
-- Incluye una sección si se ve su título (INGLÉS o STEM/PROGRAMACIÓN) o sus preguntas, aunque las marcas
-  no sean claras: en ese caso devuelve todas sus respuestas con null donde no distingas la marca.
-- Solo omite una sección si realmente no aparece en la imagen. Nunca devuelvas "Secciones" vacío si se ve alguna.
+- Si una sección no aparece en la imagen, no la incluyas.
 - El arreglo "Respuestas" debe tener exactamente 8 elementos para Inglés y 7 para Programación.
  
 Devuelve únicamente el JSON con las claves: Nombre, Grupo, Fecha, Secciones
 (cada sección: Materia y Respuestas).
-"""
- 
-PROMPT_REFUERZO_E1 = """
- 
-ATENCIÓN: la lectura anterior devolvió "Secciones" vacío, y eso es un error.
-Esta hoja SIEMPRE contiene al menos una sección: INGLÉS (8 preguntas) y/o STEM/PROGRAMACIÓN (7 preguntas).
-Aunque la foto esté inclinada, borrosa, girada o parcial, devuelve cada sección que se vea (por su título
-o por sus preguntas) con TODAS sus respuestas, usando null en las que no se distingan.
 """
  
 PROMPT_ENCUESTA_2 = """
@@ -354,26 +348,6 @@ def optimizar_imagen(datos: bytes, mime: str) -> tuple:
 # =========================================================
 class CuotaAgotada(Exception):
     pass
- 
- 
-OLLAMA_MAX_LADO = 1280
- 
- 
-def reducir_b64(img_b64: str, lado: int) -> str:
-    """Reduce la imagen (base64) para que no consuma todo el contexto del modelo local."""
-    try:
-        with Image.open(io.BytesIO(base64.b64decode(img_b64))) as im:
-            im = im.convert("RGB")
-            escala = min(1.0, lado / max(im.size))
-            if escala >= 1.0:
-                return img_b64
-            im = im.resize((max(1, round(im.width * escala)), max(1, round(im.height * escala))),
-                           Image.Resampling.LANCZOS)
-            salida = io.BytesIO()
-            im.save(salida, format="JPEG", quality=88)
-            return base64.b64encode(salida.getvalue()).decode("utf-8")
-    except Exception:
-        return img_b64
  
  
 def _mensaje_error(r: requests.Response) -> str:
@@ -459,32 +433,18 @@ def llamar_gemini(prompt: str, img_b64: str, mime: str, esquema: dict, modelos: 
  
  
 def llamar_ollama(prompt: str, img_b64: str, esquema: dict, modelo: str, host: str) -> str:
-    url = f"{host.rstrip('/')}/api/chat"
-    img_b64 = reducir_b64(img_b64, OLLAMA_MAX_LADO)
- 
-    def pedir(formato):
-        return requests.post(
-            url,
-            json={"model": modelo, "stream": False, "format": formato, "keep_alive": "10m",
-                  "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 1500},
-                  "messages": [{"role": "user", "content": prompt, "images": [img_b64]}]},
-            timeout=900,
-        )
- 
     try:
-        r = pedir(esquema)
-        if r.status_code == 400:
-            st.caption("↪️ Ollama no aceptó el esquema. Reintentando con JSON libre...")
-            r = pedir("json")
-        if r.status_code == 404:
-            raise RuntimeError(f"Ollama no tiene el modelo '{modelo}'. Descárgalo con: ollama pull {modelo}")
-        if r.status_code != 200:
-            raise RuntimeError(f"HTTP {r.status_code}: {r.text[:300]}")
+        r = requests.post(
+            f"{host.rstrip('/')}/api/chat",
+            json={"model": modelo, "stream": False, "format": esquema,
+                  "options": {"temperature": 0},
+                  "messages": [{"role": "user", "content": prompt, "images": [img_b64]}]},
+            timeout=600,
+        )
+        r.raise_for_status()
         return r.json()["message"]["content"]
     except requests.exceptions.ConnectionError:
         raise RuntimeError(f"No se pudo conectar con Ollama en {host}. ¿Está corriendo (ollama serve)?")
-    except RuntimeError:
-        raise
     except Exception as exc:
         raise RuntimeError(f"Error con Ollama: {exc}")
  
@@ -576,18 +536,12 @@ def procesar_imagen(img: Any, plantilla_id: str, cfg: dict) -> List[Dict[str, An
         crudo = obtener_texto(prompt, base64.b64encode(opt).decode("utf-8"), mime_opt, esquema, cfg)
         st.session_state["cache_gemini"][clave_cache] = crudo  # evita gastar cuota si la validación falla
  
+    if cfg.get("debug"):
+        with st.expander("🔍 Respuesta cruda del modelo"):
+            st.code(crudo, language="json")
+ 
     try:
         datos = extraer_json(crudo)
- 
-        # Si el modelo devolvió "Secciones" vacío, se reintenta una vez con instrucciones reforzadas.
-        if plantilla_id == "encuesta_ingles_programacion" and not datos.get("Secciones"):
-            st.caption("↪️ La primera lectura no encontró secciones. Reintentando con instrucciones reforzadas...")
-            opt, mime_opt = optimizar_imagen(datos_img, mime)
-            crudo = obtener_texto(prompt + PROMPT_REFUERZO_E1, base64.b64encode(opt).decode("utf-8"),
-                                  mime_opt, esquema, cfg)
-            st.session_state["cache_gemini"][clave_cache] = crudo
-            datos = extraer_json(crudo)
- 
         if plantilla_id == "encuesta_ingles_programacion":
             return validar_encuesta_1(datos)
         return [validar_encuesta_2(datos)]
@@ -600,14 +554,6 @@ def procesar_imagen(img: Any, plantilla_id: str, cfg: dict) -> List[Dict[str, An
 # =========================================================
 # EXCEL
 # =========================================================
-def excel_bytes(hojas: Dict[str, pd.DataFrame]) -> bytes:
-    buf = BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as w:
-        for nombre, df in hojas.items():
-            df.to_excel(w, index=False, sheet_name=nombre[:31])
-    return buf.getvalue()
- 
- 
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
  
 # =========================================================
@@ -618,7 +564,9 @@ motor = st.sidebar.radio("Motor:", ["Gemini", "Gemini → Ollama si falla", "Oll
 modelos_txt = st.sidebar.text_input("Modelos Gemini (en orden de prioridad):", MODELOS_GEMINI_DEFECTO)
 ollama_modelo = st.sidebar.text_input("Modelo Ollama:", OLLAMA_MODELO_DEFECTO)
 ollama_host = st.sidebar.text_input("Servidor Ollama:", OLLAMA_HOST_DEFECTO)
+debug = st.sidebar.checkbox("🔍 Mostrar respuesta cruda del modelo")
 CFG = {
+    "debug": debug,
     "motor": motor,
     "modelos": [m.strip() for m in modelos_txt.split(",") if m.strip()],
     "ollama_modelo": ollama_modelo.strip(),
@@ -638,7 +586,7 @@ except FileNotFoundError:
  
 st.sidebar.subheader("⚠️ Zona de reinicio")
 confirmar = st.sidebar.checkbox("Confirmar borrar datos actuales")
-if st.sidebar.button("🗑️ Borrar y Reiniciar BD"):
+if st.sidebar.button("🗑️ Borrar y Reiniciar BD", key="btn_borrar"):
     if confirmar:
         with sqlite3.connect(DB_NAME) as conn:
             conn.execute("DROP TABLE IF EXISTS resultados")
@@ -654,22 +602,20 @@ if st.sidebar.button("🗑️ Borrar y Reiniciar BD"):
 # =========================================================
 # SELECCIÓN Y CARGA
 # =========================================================
-st.divider()
 st.subheader("📋 Tipo de encuesta")
 nombre_plantilla = st.selectbox("Selecciona qué tipo de encuesta vas a procesar:", list(PLANTILLAS))
 plantilla = PLANTILLAS[nombre_plantilla]
-st.info(f"**{nombre_plantilla}** — {plantilla['descripcion']}")
  
 origen = st.radio("Origen de las imágenes:", ["Subir Archivos (Múltiples)", "Usar Cámara (Individual)"],
                   horizontal=True)
 imagenes: list = []
 if origen == "Usar Cámara (Individual)":
-    foto = st.camera_input("📷 Toma una foto de la encuesta")
+    foto = st.camera_input("📷 Toma una foto de la encuesta", key=f"cam_{st.session_state['uploader_key']}")
     if foto:
         imagenes = [foto]
 else:
     imagenes = st.file_uploader("📁 Sube una o varias imágenes", type=["jpg", "jpeg", "png", "webp"],
-                                accept_multiple_files=True) or []
+                                accept_multiple_files=True, key=f"uploader_{st.session_state['uploader_key']}") or []
  
 # =========================================================
 # PROCESAMIENTO
@@ -677,7 +623,13 @@ else:
 if imagenes:
     st.info(f"📁 {len(imagenes)} archivo(s) seleccionado(s).")
  
-    if st.button("🚀 Procesar todas las encuestas", type="primary"):
+    b1, b2, _ = st.columns([1, 1, 2])
+    procesar = b1.button("🚀 Procesar todas las encuestas", type="primary")
+    if b2.button("🗑️ Eliminar imágenes"):
+        st.session_state["uploader_key"] += 1
+        st.rerun()
+ 
+    if procesar:
         barra = st.progress(0)
         ok = err = omitidas = 0
         ya = imagenes_ya_procesadas()
@@ -754,6 +706,7 @@ if st.session_state["pendientes"]:
                 existentes.add(k)
                 guardados += 1
         marcar_imagenes(st.session_state["hashes_pend"])
+        st.session_state["uploader_key"] += 1
         st.session_state["pendientes"], st.session_state["hashes_pend"] = [], set()
         st.session_state["flash"] = f"✅ Guardados: {guardados}. Duplicados omitidos: {duplicados}."
         st.rerun()
@@ -791,6 +744,8 @@ else:
     if "Materia" in df.columns:  # compatibilidad con registros antiguos
         df.loc[df["Tipo Encuesta"].isna() & df["Materia"].notna(), "Tipo Encuesta"] = T1
  
+    panel_resumen(df)
+ 
     tipos = sorted(str(x) for x in df["Tipo Encuesta"].dropna().unique())
     filtro = st.selectbox("🔎 Mostrar:", ["Todas"] + tipos)
  
@@ -814,8 +769,11 @@ else:
                            key=f"csv_{nombre_hoja}")
  
     if hojas:
-        st.download_button("📊 Exportar a Excel", excel_bytes(hojas),
-                           file_name="encuestas.xlsx", mime=XLSX_MIME, key="xlsx_all")
+        try:
+            st.download_button("📊 Exportar a Excel", excel_bytes(hojas, df if filtro == "Todas" else df[df["Tipo Encuesta"] == filtro]),
+                               file_name="encuestas.xlsx", mime=XLSX_MIME, key="xlsx_all")
+        except ModuleNotFoundError:
+            st.warning("Falta instalar `openpyxl` para exportar a Excel (`pip install openpyxl`).")
  
     if T2 in hojas or filtro == T2:
         with st.expander("🔤 Equivalencia de incisos — Encuesta 2"):
@@ -830,4 +788,3 @@ else:
                 ["Pregunta 4", "a / b / c", "Sí / No / No sé"],
                 ["Pregunta 5", "—", "Respuesta abierta"],
             ], columns=["Pregunta", "Inciso", "Respuesta impresa"]), use_container_width=True, hide_index=True)
- 
