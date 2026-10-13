@@ -769,8 +769,10 @@ else:
                            key=f"csv_{nombre_hoja}")
  
     if hojas:
+        incluir_stats = st.checkbox("📈 Incluir estadísticas y gráficas en el Excel", value=True, key="incluir_stats")
+        df_stats = (df if filtro == "Todas" else df[df["Tipo Encuesta"] == filtro]) if incluir_stats else None
         try:
-            st.download_button("📊 Exportar a Excel", excel_bytes(hojas, df if filtro == "Todas" else df[df["Tipo Encuesta"] == filtro]),
+            st.download_button("📊 Exportar a Excel", excel_bytes(hojas, df_stats),
                                file_name="encuestas.xlsx", mime=XLSX_MIME, key="xlsx_all")
         except ModuleNotFoundError:
             st.warning("Falta instalar `openpyxl` para exportar a Excel (`pip install openpyxl`).")
@@ -788,3 +790,4 @@ else:
                 ["Pregunta 4", "a / b / c", "Sí / No / No sé"],
                 ["Pregunta 5", "—", "Respuesta abierta"],
             ], columns=["Pregunta", "Inciso", "Respuesta impresa"]), use_container_width=True, hide_index=True)
+ 

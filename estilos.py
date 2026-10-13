@@ -132,13 +132,13 @@ h1, h2, h3 { color: var(--tinta); letter-spacing: -0.01em; font-weight: 700; }
   display: block; font-size: .85rem; color: var(--suave); margin-top: .15rem;
 }
 /* Botón con texto propio (se oculta el ícono y el texto original) */
-[data-testid="stFileUploaderDropzone"] button {
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] {
   margin-left: auto; background: linear-gradient(135deg, var(--azul), #4F86F7);
   border: none; border-radius: 12px; padding: .6rem 1.4rem;
   box-shadow: 0 8px 20px rgba(59,108,246,.3);
 }
-[data-testid="stFileUploaderDropzone"] button * { display: none; }
-[data-testid="stFileUploaderDropzone"] button::after {
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] * { display: none; }
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]::after {
   content: "Seleccionar archivos"; color: #fff; font-weight: 600; font-size: .95rem;
 }
  
@@ -163,14 +163,14 @@ h1, h2, h3 { color: var(--tinta); letter-spacing: -0.01em; font-weight: 700; }
 .graf-cab h4 { margin: 0; padding: 0; font-size: 1.15rem; font-weight: 700; }
 .leyenda { display: flex; gap: .9rem; font-size: .85rem; color: var(--suave); }
 .leyenda .dot { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; margin-right: .3rem; }
-.graf { display: grid; grid-template-columns: auto 1.25fr 1fr; gap: 1rem; height: 230px; margin-top: .5rem; }
+.graf { display: grid; grid-template-columns: auto 1.4fr 1fr; gap: 1.2rem; height: 300px; margin-top: .5rem; }
 .graf .eje { display: flex; flex-direction: column; justify-content: space-between;
   padding-bottom: 22px; font-size: .75rem; color: var(--suave); text-align: right; }
 .graf .barras { display: flex; gap: 6px; border-left: 1px solid var(--borde); padding-left: 8px; }
 .graf .col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .graf .pila { flex: 1; display: flex; flex-direction: column-reverse; border-bottom: 1px solid var(--borde); }
 .graf .seg { min-height: 0; }
-.graf .et { height: 22px; text-align: center; font-size: .72rem; color: var(--suave); padding-top: 4px; }
+.graf .et { height: 22px; text-align: center; font-size: .72rem; color: var(--suave); padding-top: 4px; white-space: nowrap; overflow: hidden; }
 .graf .filas { overflow-y: auto; padding-right: 6px; }
 .graf .fila { margin-bottom: .75rem; }
 .graf .fila-t { display: flex; justify-content: space-between; font-size: .8rem; font-weight: 600; margin-bottom: .25rem; }
@@ -242,15 +242,25 @@ section[data-testid="stSidebar"] [data-baseweb="input"] button * {
   content: "Formatos: JPG, PNG, WEBP  |  Máx. 200 MB por archivo";
   display: block; font-size: .85rem; color: #5B6B9A; margin-top: .15rem;
 }
-[data-testid="stFileUploaderDropzone"] button {
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] {
   margin-left: auto; background: linear-gradient(135deg, #3B6CF6, #4F86F7) !important;
   border: none; border-radius: 12px; padding: .6rem 1.4rem;
   box-shadow: 0 8px 20px rgba(59,108,246,.3);
 }
-[data-testid="stFileUploaderDropzone"] button * { display: none; }
-[data-testid="stFileUploaderDropzone"] button::after {
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] * { display: none; }
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]::after {
   content: "Seleccionar archivos"; color: #fff; font-weight: 600; font-size: .95rem;
 }
+/* El botón de quitar archivo (X) conserva su ícono */
+[data-testid="stFileUploaderDeleteBtn"] button,
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-minimal"] {
+  margin-left: 0 !important; background: transparent !important; box-shadow: none !important;
+  padding: .25rem !important;
+}
+[data-testid="stFileUploaderDeleteBtn"] button *,
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-minimal"] * { display: revert !important; }
+[data-testid="stFileUploaderDeleteBtn"] button::after,
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-minimal"]::after { content: none !important; }
 </style>
 """
  
@@ -308,7 +318,7 @@ def _grafica_html(nombre: str, sub: pd.DataFrame) -> str:
                          for k, col in zip(cnt, COLORES))
         nums = "".join(f'<span style="color:{col}">{o} {k}</span>'
                        for o, k, col in zip("abc", cnt, COLORES))
-        filas += (f'<div class="fila"><div class="fila-t"><span>{r} - {nombre}</span>'
+        filas += (f'<div class="fila"><div class="fila-t"><span>{r}</span>'
                   f'<span class="cnt">{nums}</span></div><div class="barra">{anchos}</div></div>')
  
     return (f'<div class="graf"><div class="eje"><span>{top}</span><span>{mid}</span><span>0</span></div>'
@@ -321,7 +331,7 @@ def panel_resumen(df: pd.DataFrame) -> None:
     total = sum(int(g.notna().sum().sum()) for g in grupos.values())
     vacias = sum(int(g.isna().sum().sum()) for g in grupos.values())
  
-    c1, c2, c3 = st.columns([0.9, 2.3, 1.1])
+    c1, c2 = st.columns([1, 2.6])
  
     with c1.container(border=True):
         st.markdown("#### Resumen")
@@ -343,13 +353,7 @@ def panel_resumen(df: pd.DataFrame) -> None:
             nombre = (st.selectbox("Sección", list(grupos), key="grupo_grafica",
                                    label_visibility="collapsed")
                       if len(grupos) > 1 else next(iter(grupos)))
+            if len(grupos) == 1:
+                st.caption(nombre)
             st.markdown(_grafica_html(nombre, grupos[nombre]), unsafe_allow_html=True)
- 
-    with c3.container(border=True):
-        st.markdown("#### Últimos registros")
-        g1 = df["Grupo"] if "Grupo" in df.columns else pd.Series(None, index=df.index, dtype=object)
-        g2 = df["Grado y grupo"] if "Grado y grupo" in df.columns else pd.Series(None, index=df.index, dtype=object)
-        vista = pd.DataFrame({"Nombre": df.get("Nombre"), "Grupo": g1.fillna(g2)}).head(4)
-        st.dataframe(vista, hide_index=True, use_container_width=True)
-        st.caption("La tabla completa está más abajo.")
  
