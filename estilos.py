@@ -331,3 +331,9 @@ def panel_resumen(df: pd.DataFrame) -> None:
         st.caption("La tabla completa está más abajo.")
  
     _tarjeta_analisis(df)
+def panel_resumen(df: pd.DataFrame) -> None:
+    ...
+    _tarjeta_analisis(df)
+
+
+filas_analisis = _filas_analisis
