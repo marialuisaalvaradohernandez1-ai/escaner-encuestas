@@ -107,41 +107,6 @@ h1, h2, h3 { color: var(--tinta); letter-spacing: -0.01em; font-weight: 700; }
   border-color: var(--azul); box-shadow: 0 0 0 3px rgba(59,108,246,.15); background: #F5F8FF;
 }
  
-/* ---------- Zona de carga ---------- */
-[data-testid="stFileUploaderDropzone"] {
-  display: flex; align-items: center; gap: 1.1rem;
-  border: 1.5px solid #7CC4F8; border-radius: 18px;
-  background: linear-gradient(180deg, #F8FBFF, #EEF6FF);
-  box-shadow: 0 0 0 4px rgba(94,170,255,.12), 0 0 28px rgba(94,170,255,.35);
-  padding: 1.3rem 1.6rem;
-}
-[data-testid="stFileUploaderDropzone"]::before {
-  content: "☁️"; font-size: 1.8rem; width: 3.6rem; height: 3.6rem; flex: none;
-  display: grid; place-items: center; background: #fff; border-radius: 16px;
-  box-shadow: 0 6px 16px rgba(59,108,246,.15);
-}
-/* Textos en español (se oculta el texto original de Streamlit) */
-[data-testid="stFileUploaderDropzoneInstructions"] { flex: 1; }
-[data-testid="stFileUploaderDropzoneInstructions"] > * { display: none; }
-[data-testid="stFileUploaderDropzoneInstructions"]::before {
-  content: "Arrastra tus imágenes aquí o haz clic para seleccionar";
-  display: block; font-weight: 700; color: var(--tinta);
-}
-[data-testid="stFileUploaderDropzoneInstructions"]::after {
-  content: "Formatos: JPG, PNG, WEBP  |  Máx. 200 MB por archivo";
-  display: block; font-size: .85rem; color: var(--suave); margin-top: .15rem;
-}
-/* Botón con texto propio (se oculta el ícono y el texto original) */
-[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] {
-  margin-left: auto; background: linear-gradient(135deg, var(--azul), #4F86F7);
-  border: none; border-radius: 12px; padding: .6rem 1.4rem;
-  box-shadow: 0 8px 20px rgba(59,108,246,.3);
-}
-[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] * { display: none; }
-[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]::after {
-  content: "Seleccionar archivos"; color: #fff; font-weight: 600; font-size: .95rem;
-}
- 
 /* ---------- Botones principales ---------- */
 .main button[kind="primary"] {
   background: linear-gradient(135deg, var(--azul), var(--violeta)); border: none;
@@ -186,8 +151,8 @@ h1, h2, h3 { color: var(--tinta); letter-spacing: -0.01em; font-weight: 700; }
 }
 @media (max-width: 640px) {
   .hero { flex-wrap: wrap; } .estado { margin-left: 0; }
-  [data-testid="stFileUploaderDropzone"] { flex-wrap: wrap; }
 }
+ 
 /* ===== Parches ===== */
 /* 1. Íconos de Streamlit: que vuelvan a verse como íconos y no como texto */
 span[data-testid="stIconMaterial"], .stApp [class*="material-symbols"] {
@@ -219,38 +184,55 @@ section[data-testid="stSidebar"] [data-baseweb="input"] button * {
   background: transparent !important; color: #5B6B9A !important; fill: #5B6B9A !important;
 }
  
-/* 3. Zona de carga con textos en español */
+/* ===== Zona de carga: diseño final (ícono | textos | ilustración | botón) ===== */
 [data-testid="stFileUploaderDropzone"] {
-  display: flex !important; align-items: center; gap: 1.1rem;
-  border: 1.5px solid #7CC4F8 !important; border-radius: 18px;
-  background: linear-gradient(180deg, #F8FBFF, #EEF6FF) !important;
-  box-shadow: 0 0 0 4px rgba(94,170,255,.12), 0 0 28px rgba(94,170,255,.35);
-  padding: 1.3rem 1.6rem;
+  display: flex !important; align-items: center !important; flex-wrap: nowrap;
+  gap: 1.4rem !important; padding: 1.2rem 1.8rem !important;
+  border: 1.5px solid #7CC4F8 !important; border-radius: 20px !important;
+  background: linear-gradient(180deg, #FAFDFF, #EEF7FF) !important;
+  box-shadow: 0 0 0 5px rgba(94,170,255,.10), 0 0 34px rgba(94,170,255,.40) !important;
 }
+ 
+/* 1. Ícono nube con flecha */
 [data-testid="stFileUploaderDropzone"]::before {
-  content: "☁️"; font-size: 1.8rem; width: 3.6rem; height: 3.6rem; flex: none;
-  display: grid; place-items: center; background: #fff; border-radius: 16px;
-  box-shadow: 0 6px 16px rgba(59,108,246,.15);
+  content: "" !important; order: 0 !important; flex: none;
+  width: 4rem; height: 4rem; border-radius: 18px; display: block;
+  background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233B6CF6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4.75 4.75 0 0 1-.5 9.5'/><path d='M12 20v-8M9 14.5l3-3 3 3'/></svg>") center / 2.4rem no-repeat !important;
+  box-shadow: 0 8px 22px rgba(59,108,246,.18);
 }
-[data-testid="stFileUploaderDropzoneInstructions"] { flex: 1; }
-[data-testid="stFileUploaderDropzoneInstructions"] > * { display: none; }
+ 
+/* 2. Textos: uno debajo del otro */
+[data-testid="stFileUploaderDropzoneInstructions"] {
+  order: 1 !important; flex: 1 !important; display: block !important; min-width: 0;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] > * { display: none !important; }
 [data-testid="stFileUploaderDropzoneInstructions"]::before {
   content: "Arrastra tus imágenes aquí o haz clic para seleccionar";
-  display: block; font-weight: 700; color: #0F1B4D;
+  display: block !important; font-size: 1rem; font-weight: 600; color: #0F1B4D;
 }
 [data-testid="stFileUploaderDropzoneInstructions"]::after {
-  content: "Formatos: JPG, PNG, WEBP  |  Máx. 200 MB por archivo";
-  display: block; font-size: .85rem; color: #5B6B9A; margin-top: .15rem;
+  content: "Formatos: JPG, PNG, WEBP  |  Máx. 200MB por archivo";
+  display: block !important; font-size: .8rem; color: #5B6B9A; margin-top: .2rem;
 }
+ 
+/* 3. Ilustración de archivos */
+[data-testid="stFileUploaderDropzone"]::after {
+  content: ""; order: 2 !important; flex: none; width: 96px; height: 76px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 76'><g transform='rotate(-8 24 44)'><rect x='4' y='24' width='42' height='42' rx='6' fill='%234F86F7'/><text x='25' y='51' font-size='11' font-weight='700' fill='white' text-anchor='middle' font-family='Arial'>JPG</text></g><rect x='30' y='14' width='38' height='38' rx='6' fill='%23FF922B'/><text x='49' y='38' font-size='10' font-weight='700' fill='white' text-anchor='middle' font-family='Arial'>PNG</text><g transform='rotate(8 70 30)'><rect x='52' y='4' width='38' height='38' rx='6' fill='%2312B886'/><text x='71' y='28' font-size='9' font-weight='700' fill='white' text-anchor='middle' font-family='Arial'>WEBP</text></g></svg>") center / contain no-repeat;
+}
+ 
+/* 4. Botón a la derecha (se oculta su texto/ícono original y se pone el propio) */
 [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] {
-  margin-left: auto; background: linear-gradient(135deg, #3B6CF6, #4F86F7) !important;
-  border: none; border-radius: 12px; padding: .6rem 1.4rem;
+  order: 3 !important; margin-left: 0 !important; flex: none; white-space: nowrap;
+  padding: .65rem 1.6rem !important; border: none !important; border-radius: 12px !important;
+  background: linear-gradient(135deg, #3B6CF6, #4F86F7) !important;
   box-shadow: 0 8px 20px rgba(59,108,246,.3);
 }
 [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] * { display: none; }
 [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]::after {
-  content: "Seleccionar archivos"; color: #fff; font-weight: 600; font-size: .95rem;
+  content: "Seleccionar Archivos"; color: #fff; font-weight: 600; font-size: .95rem;
 }
+ 
 /* El botón de quitar archivo (X) conserva su ícono */
 [data-testid="stFileUploaderDeleteBtn"] button,
 [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-minimal"] {
@@ -261,6 +243,17 @@ section[data-testid="stSidebar"] [data-baseweb="input"] button * {
 [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-minimal"] * { display: revert !important; }
 [data-testid="stFileUploaderDeleteBtn"] button::after,
 [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-minimal"]::after { content: none !important; }
+ 
+/* Con archivos ya cargados, se oculta la ilustración para dar espacio */
+[data-testid="stFileUploader"]:has([data-testid="stFileUploaderFile"]) [data-testid="stFileUploaderDropzone"]::after {
+  display: none;
+}
+ 
+/* Móvil */
+@media (max-width: 900px) {
+  [data-testid="stFileUploaderDropzone"] { flex-wrap: wrap; }
+  [data-testid="stFileUploaderDropzone"]::after { display: none; }
+}
 </style>
 """
  

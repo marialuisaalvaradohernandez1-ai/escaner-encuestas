@@ -207,6 +207,7 @@ def esquema_encuesta_1() -> Dict[str, Any]:
             "Fecha": {"type": ["string", "null"]},
             "Secciones": {
                 "type": "array",
+                "minItems": 1,
                 "items": {
                     "type": "object",
                     "properties": {
@@ -287,7 +288,11 @@ DISTRIBUCIÓN: cada sección tiene dos columnas. Se lee primero la columna izqui
 REGLAS:
 - Cada materia es independiente; la numeración se reinicia en cada sección.
 - No combines secciones, no agregues ni elimines preguntas.
-- Si una sección no aparece en la imagen, no la incluyas.
+- La materia se identifica por el título de cada sección (INGLÉS / PROGRAMACIÓN).
+- Incluye SIEMPRE al menos una sección. Si la foto está borrosa, inclinada o la marca es dudosa,
+  devuelve la sección con las respuestas que alcances a ver y null en las dudosas.
+  Nunca devuelvas "Secciones" vacío.
+- Solo omite una materia si de verdad no aparece ninguna de sus preguntas en la imagen.
 - El arreglo "Respuestas" debe tener exactamente 8 elementos para Inglés y 7 para Programación.
  
 Devuelve únicamente el JSON con las claves: Nombre, Grupo, Fecha, Secciones
@@ -546,6 +551,7 @@ def procesar_imagen(img: Any, plantilla_id: str, cfg: dict) -> List[Dict[str, An
             return validar_encuesta_1(datos)
         return [validar_encuesta_2(datos)]
     except Exception:
+        st.session_state["cache_gemini"].pop(clave_cache, None)  # permite reintentar con el modelo
         with st.expander("Ver respuesta cruda del modelo"):
             st.code(crudo, language="json")
         raise
